@@ -14,9 +14,9 @@ fn main() {
         println!("Usage: bw <filename>");
         std::process::exit(1);
     }
-    let filename: &String = &args[1];
+    let filename: &str = &args[1];
 
-    let program = program::Program::new();
+    let mut program = program::Program::new();
 
     // check if the file exists
     if !std::path::Path::new(filename).exists() {
@@ -27,7 +27,7 @@ fn main() {
     let bwfile = bwfile::BWFile::new(filename.to_string());
 
     println!("File: {}", bwfile.filename);
-    println!("Extension: {}", bwfile.extension.to_string());
+    println!("Extension: {}", bwfile.extension);
 
     // read the file
     let buffer: Vec<LineType> = bwfile.read();
@@ -37,25 +37,23 @@ fn main() {
     for line in buffer {
         if line.is_category() {
             current_category = line.get_category();
+            println!("Current category : {:?}", current_category);
             continue;
         }
-        match current_category {
-            LineCategory::DATA => {
-                continue;
-            }
-            LineCategory::CODE => {
-                let instruction: Instruction = line.translate(&current_category);
-                // print the instruction in 32 bits (u32)
-                println!(
-                    "Intruction in 32 bits is {:032b}",
-                    Into::<u32>::into(instruction)
-                );
-            }
-            LineCategory::NONE => {
-                continue;
-            }
+        if current_category == LineCategory::NONE {
+            panic!("Invalid category");
         }
-
+        // check if line is not empty
+        if line.is_empty() {
+            continue;
+        }
+        let instruction: Instruction =
+            line.translate(&current_category, &mut program.variable_names);
+        // print the instruction in 32 bits (u32)
+        println!(
+            "Intruction in 32 bits is {:032b}",
+            Into::<u32>::into(instruction)
+        );
         // Expected output:
         // File: 20_bytes.bin
         // 111111111111111111111111111111 01

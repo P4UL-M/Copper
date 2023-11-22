@@ -1,4 +1,4 @@
-use crate::enums::{Extension, Instruction, Parameter, Register};
+use crate::enums::{Extension, Instruction, Label, Parameter, Register, Variable, VariableNames};
 use std::io::Read;
 use std::str::FromStr;
 
@@ -7,7 +7,7 @@ pub enum LineType {
     Bin(u32),
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum LineCategory {
     DATA = 0b00,
     CODE = 0b01,
@@ -15,11 +15,20 @@ pub enum LineCategory {
 }
 
 impl LineType {
-    pub fn translate(&self, category: &LineCategory) -> Instruction {
+    pub fn translate(
+        &self,
+        category: &LineCategory,
+        variable_names: &mut VariableNames,
+    ) -> Instruction {
         // export categories
         if *category == LineCategory::CODE {
             match self {
                 LineType::String(line) => {
+                    // check if line is a label
+                    if line.ends_with(":") {
+                        let lbl_name = line.replace(":", "");
+                        return Instruction::LABEL(Label::from_str(lbl_name.as_str()).unwrap());
+                    }
                     let mut line = line.split(" ");
                     let instruction = line.next().unwrap();
                     match instruction {
@@ -28,7 +37,7 @@ impl LineType {
                             let parameter = line.next().unwrap(); // get the parameter
                             return Instruction::LDA(
                                 Register::from_str(register).unwrap(),
-                                Parameter::from_str(parameter).unwrap(),
+                                Parameter::from_str(parameter, variable_names),
                             )
                             .into();
                         }
@@ -49,6 +58,21 @@ impl LineType {
                         }
                         _ => panic!("Invalid instruction"),
                     }
+                }
+            }
+        } else if *category == LineCategory::DATA {
+            match self {
+                LineType::String(line) => {
+                    let (name, value) = line.split_at(line.find(" ").unwrap());
+                    let value = value.trim();
+                    let value =
+                        Into::<u32>::into(value.parse::<i32>().unwrap() as u32) & 0b1111111111; // parse the value and convert it to 10 bits integer
+                    return Instruction::VARIABLE(Variable::new(name, variable_names), value);
+                }
+                LineType::Bin(line) => {
+                    let name = line >> 22; // get first 10 bits for variable name
+                    let value = (line >> 12) & 0b1111111111; // get next 10 bits for variable value
+                    return Instruction::VARIABLE(Variable::from(name as u16), value);
                 }
             }
         }
@@ -97,6 +121,23 @@ impl LineType {
                 } else {
                     panic!("Invalid category");
                 }
+            }
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            LineType::String(line) => {
+                if line.is_empty() {
+                    return true;
+                }
+                return false;
+            }
+            LineType::Bin(line) => {
+                if line == &0 {
+                    return true;
+                }
+                return false;
             }
         }
     }

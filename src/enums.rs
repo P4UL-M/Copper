@@ -27,6 +27,8 @@ pub enum Instruction {
     BSM(Parameter, Parameter, u3),
     JMP(u3),
     HLT,
+    VARIABLE(Variable, u32),
+    LABEL(Label),
 }
 
 impl Into<u32> for Instruction {
@@ -200,34 +202,49 @@ impl Into<u32> for Instruction {
                 res = res << 27; // 27 bits to get to 32 bits
                 return res;
             }
+            Instruction::VARIABLE(v, i) => {
+                // first 10 bits are variable name
+                let mut res = Into::<u16>::into(v) as u32;
+                // next 10 bits are the value
+                res = res << 10;
+                res = res | (i & 0b1111111111);
+                // shift left 12 bits to get to 32 bits
+                res = res << 12;
+                return res;
+            }
+            Instruction::LABEL(l) => {
+                let mut res = 0b11110; // 5 bits for the instruction
+                res = res << 5;
+                res = res | l as u32; // 3 bits for the label
+                res = res << 24; // 24 bits to get to 32 bits
+                return res;
+            }
         }
     }
 }
 
 pub enum Parameter {
     Register(Register),
-    Variable(u12),
+    Variable(u16),
     Constant(u12),
 }
 
-impl str::FromStr for Parameter {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+impl Parameter {
+    pub fn from_str(s: &str, variable_names: &mut VariableNames) -> Self {
         // check if the string is a register
         match s.parse::<Register>() {
-            Ok(_) => return Ok(Parameter::Register(s.parse::<Register>().unwrap())),
+            Ok(_) => return Parameter::Register(s.parse::<Register>().unwrap()),
             Err(_) => (),
         }
         // check if the string is a constant
         match s.parse::<i32>() {
             Ok(_) => {
-                return Ok(Parameter::Constant(s.parse::<i32>().unwrap() as u12));
+                return Parameter::Constant(s.parse::<i32>().unwrap() as u12);
             }
             Err(_) => (),
         }
         // else it's a variable
-        return Ok(Parameter::Variable(Variable::from_str(s).unwrap() as u12));
+        return Parameter::Variable(Variable::from_str(s, variable_names).into());
     }
 }
 
@@ -241,7 +258,7 @@ impl From<u12> for Parameter {
             }
             0b01 => {
                 let variable = (i >> 7) & 0b111;
-                return Parameter::Variable(variable);
+                return Parameter::Variable(variable as u16);
             }
             0b10 => {
                 let constant = i & 0b1111111111;
@@ -264,9 +281,8 @@ impl Into<u12> for Parameter {
             }
             Parameter::Variable(i) => {
                 let mut res: u32 = 0b01; // 2 bits for the parameter type
-                res = res << 3;
-                res = res | (i & 0111); // 3 bits for the variable
-                res = res << 7; // shift left 7 bits to get to 12 bits
+                res = res << 10;
+                res = res | (i as u32 & 0b1111111111); // 10 bits for the variable
                 return res;
             }
             Parameter::Constant(i) => {
@@ -313,48 +329,59 @@ impl From<u2> for Register {
     }
 }
 
-pub enum Variable {
-    V0 = 0b000,
-    V1 = 0b001,
-    V2 = 0b010,
-    V3 = 0b011,
-    V4 = 0b100,
-    V5 = 0b101,
-    V6 = 0b110,
-    V7 = 0b111,
+//TODO: Change structure of Variable and Label so that we can choose the name of the variable in string format
+pub struct Variable {
+    pub name: u16,
 }
 
-impl str::FromStr for Variable {
-    type Err = ();
+pub struct VariableNames(Vec<String>);
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "V0" => Ok(Variable::V0),
-            "V1" => Ok(Variable::V1),
-            "V2" => Ok(Variable::V2),
-            "V3" => Ok(Variable::V3),
-            "V4" => Ok(Variable::V4),
-            "V5" => Ok(Variable::V5),
-            "V6" => Ok(Variable::V6),
-            "V7" => Ok(Variable::V7),
-            _ => Err(()),
-        }
+impl VariableNames {
+    pub fn new() -> Self {
+        VariableNames(Vec::new())
+    }
+
+    fn add(&mut self, s: &str) -> u16 {
+        self.0.push(s.to_string());
+        return self.0.len() as u16 - 1;
+    }
+
+    fn contains(&self, s: &str) -> bool {
+        self.0.contains(&s.to_string())
     }
 }
 
-impl From<u3> for Variable {
-    fn from(i: u3) -> Self {
-        match i {
-            0b000 => Variable::V0,
-            0b001 => Variable::V1,
-            0b010 => Variable::V2,
-            0b011 => Variable::V3,
-            0b100 => Variable::V4,
-            0b101 => Variable::V5,
-            0b110 => Variable::V6,
-            0b111 => Variable::V7,
-            _ => panic!("Invalid variable"),
+impl Variable {
+    pub fn new(s: &str, variable_names: &mut VariableNames) -> Self {
+        // check that the variable name does not exist
+        if variable_names.contains(s) {
+            panic!("Variable already exists");
         }
+        return Variable {
+            name: variable_names.add(s),
+        };
+    }
+
+    pub fn from_str(s: &str, variable_names: &mut VariableNames) -> Self {
+        // check that the variable name exists
+        if !variable_names.contains(s) {
+            panic!("Variable does not exist");
+        }
+        return Variable {
+            name: variable_names.0.iter().position(|x| x == s).unwrap() as u16,
+        };
+    }
+}
+
+impl From<u16> for Variable {
+    fn from(i: u16) -> Self {
+        Variable { name: i as u16 }
+    }
+}
+
+impl Into<u16> for Variable {
+    fn into(self) -> u16 {
+        self.name
     }
 }
 
