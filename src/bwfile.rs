@@ -1,4 +1,5 @@
-use crate::enums::{Extension, Instruction, Label, Parameter, Register, Variable, VariableNames};
+use crate::enums::Addressable;
+use crate::enums::{AddressNames, Extension, Instruction, Label, Parameter, Register, Variable};
 use std::io::Read;
 use std::str::FromStr;
 
@@ -18,7 +19,8 @@ impl LineType {
     pub fn translate(
         &self,
         category: &LineCategory,
-        variable_names: &mut VariableNames,
+        variable_names: &mut AddressNames,
+        label_names: &mut AddressNames,
     ) -> Instruction {
         // export categories
         if *category == LineCategory::CODE {
@@ -27,7 +29,7 @@ impl LineType {
                     // check if line is a label
                     if line.ends_with(":") {
                         let lbl_name = line.replace(":", "");
-                        return Instruction::LABEL(Label::from_str(lbl_name.as_str()).unwrap());
+                        return Instruction::LABEL(Label::from_str(lbl_name.as_str(), label_names));
                     }
                     let mut line = line.split(" ");
                     let instruction = line.next().unwrap();

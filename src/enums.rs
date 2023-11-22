@@ -76,7 +76,7 @@ impl Into<u32> for Instruction {
                 return res;
             }
             Instruction::OR(r, p) => {
-                let mut res: u32 = 0b00100;
+                let mut res: u32 = 0b00101;
                 res = res << 2;
                 res = res | r as u32; // 2 bits for the register
                 res = res << 12;
@@ -92,7 +92,7 @@ impl Into<u32> for Instruction {
                 return res;
             }
             Instruction::ADD(r, p) => {
-                let mut res: u32 = 0b00100;
+                let mut res: u32 = 0b00111;
                 res = res << 2;
                 res = res | r as u32; // 2 bits for the register
                 res = res << 12;
@@ -101,7 +101,7 @@ impl Into<u32> for Instruction {
                 return res;
             }
             Instruction::SUB(r, p) => {
-                let mut res: u32 = 0b00100;
+                let mut res: u32 = 0b0100;
                 res = res << 2;
                 res = res | r as u32; // 2 bits for the register
                 res = res << 12;
@@ -110,7 +110,7 @@ impl Into<u32> for Instruction {
                 return res;
             }
             Instruction::DIV(r, p) => {
-                let mut res: u32 = 0b00100;
+                let mut res: u32 = 0b01001;
                 res = res << 2;
                 res = res | r as u32; // 2 bits for the register
                 res = res << 12;
@@ -119,7 +119,7 @@ impl Into<u32> for Instruction {
                 return res;
             }
             Instruction::MUL(r, p) => {
-                let mut res: u32 = 0b00100;
+                let mut res: u32 = 0b01010;
                 res = res << 2;
                 res = res | r as u32; // 2 bits for the register
                 res = res << 12;
@@ -128,7 +128,7 @@ impl Into<u32> for Instruction {
                 return res;
             }
             Instruction::MOD(r, p) => {
-                let mut res: u32 = 0b00100;
+                let mut res: u32 = 0b01011;
                 res = res << 2;
                 res = res | r as u32; // 2 bits for the register
                 res = res << 12;
@@ -150,8 +150,18 @@ impl Into<u32> for Instruction {
                 res = res << 25; // 25 bits to get to 32 bits
                 return res;
             }
-            Instruction::BBG(p1, p2, lbl) => {
-                let mut res: u32 = 0b10000;
+            Instruction::BEQ(p1, p2, lbl) => {
+                let mut res: u32 = 0b01110;
+                res = res << 12;
+                res = res | Into::<u12>::into(p1); // 12 bits for the parameter
+                res = res << 12;
+                res = res | Into::<u12>::into(p2); // 12 bits for the parameter
+                res = res << 3;
+                res = res | (lbl as u32 & 0b111); // 3 bits for the label
+                return res;
+            }
+            Instruction::BNE(p1, p2, lbl) => {
+                let mut res: u32 = 0b01111;
                 res = res << 12;
                 res = res | Into::<u12>::into(p1); // 12 bits for the parameter
                 res = res << 12;
@@ -170,18 +180,8 @@ impl Into<u32> for Instruction {
                 res = res | (lbl as u32 & 0b111); // 3 bits for the label
                 return res;
             }
-            Instruction::BEQ(p1, p2, lbl) => {
-                let mut res: u32 = 0b10000;
-                res = res << 12;
-                res = res | Into::<u12>::into(p1); // 12 bits for the parameter
-                res = res << 12;
-                res = res | Into::<u12>::into(p2); // 12 bits for the parameter
-                res = res << 3;
-                res = res | (lbl as u32 & 0b111); // 3 bits for the label
-                return res;
-            }
-            Instruction::BNE(p1, p2, lbl) => {
-                let mut res: u32 = 0b10000;
+            Instruction::BBG(p1, p2, lbl) => {
+                let mut res: u32 = 0b10001;
                 res = res << 12;
                 res = res | Into::<u12>::into(p1); // 12 bits for the parameter
                 res = res << 12;
@@ -204,7 +204,7 @@ impl Into<u32> for Instruction {
             }
             Instruction::VARIABLE(v, i) => {
                 // first 10 bits are variable name
-                let mut res = Into::<u16>::into(v) as u32;
+                let mut res: u32 = Into::<u16>::into(v) as u32;
                 // next 10 bits are the value
                 res = res << 10;
                 res = res | (i & 0b1111111111);
@@ -213,9 +213,9 @@ impl Into<u32> for Instruction {
                 return res;
             }
             Instruction::LABEL(l) => {
-                let mut res = 0b11110; // 5 bits for the instruction
-                res = res << 5;
-                res = res | l as u32; // 3 bits for the label
+                let mut res = 0b11110 as u32; // 5 bits for the instruction
+                res = res << 3;
+                res = res | (Into::<u3>::into(l) as u32 & 0b111); // 3 bits for the label
                 res = res << 24; // 24 bits to get to 32 bits
                 return res;
             }
@@ -230,7 +230,7 @@ pub enum Parameter {
 }
 
 impl Parameter {
-    pub fn from_str(s: &str, variable_names: &mut VariableNames) -> Self {
+    pub fn from_str(s: &str, variable_names: &mut AddressNames) -> Self {
         // check if the string is a register
         match s.parse::<Register>() {
             Ok(_) => return Parameter::Register(s.parse::<Register>().unwrap()),
@@ -330,19 +330,31 @@ impl From<u2> for Register {
 }
 
 //TODO: Change structure of Variable and Label so that we can choose the name of the variable in string format
-pub struct Variable {
-    pub name: u16,
-}
 
-pub struct VariableNames(Vec<String>);
+pub struct AddressNames(Vec<String>);
 
-impl VariableNames {
+impl AddressNames {
     pub fn new() -> Self {
-        VariableNames(Vec::new())
+        AddressNames(Vec::new())
     }
 
     fn add(&mut self, s: &str) -> u16 {
         self.0.push(s.to_string());
+        if (self.0.len() as u16 - 1) > 0b1111111111 {
+            panic!("Too many variables");
+        }
+        if self.0.iter().filter(|x| *x == s).count() > 1 {
+            panic!("Variable already exists");
+        }
+        // check if variable name is valid
+        if s.chars().any(|c| !c.is_alphanumeric()) {
+            panic!("Invalid variable name");
+        }
+        // check if variable name is not a register
+        match s.parse::<Register>() {
+            Ok(_) => panic!("Variable name cannot be a register"),
+            Err(_) => (),
+        }
         return self.0.len() as u16 - 1;
     }
 
@@ -351,25 +363,37 @@ impl VariableNames {
     }
 }
 
-impl Variable {
-    pub fn new(s: &str, variable_names: &mut VariableNames) -> Self {
+pub trait Addressable {
+    fn new(s: &str, address_names: &mut AddressNames) -> Self;
+
+    fn from_str(s: &str, address_names: &mut AddressNames) -> Self;
+}
+
+pub struct Variable {
+    pub name: u16,
+}
+
+impl Addressable for Variable {
+    fn new(s: &str, address_names: &mut AddressNames) -> Self {
         // check that the variable name does not exist
-        if variable_names.contains(s) {
-            panic!("Variable already exists");
+        if address_names.contains(s) {
+            panic!("Address already exists");
         }
         return Variable {
-            name: variable_names.add(s),
+            name: address_names.add(s),
         };
     }
 
-    pub fn from_str(s: &str, variable_names: &mut VariableNames) -> Self {
-        // check that the variable name exists
-        if !variable_names.contains(s) {
-            panic!("Variable does not exist");
+    fn from_str(s: &str, address_names: &mut AddressNames) -> Self {
+        {
+            // check that the variable name exists
+            if !address_names.contains(s) {
+                panic!("Address does not exist");
+            }
+            return Variable {
+                name: address_names.0.iter().position(|x| x == s).unwrap() as u16,
+            };
         }
-        return Variable {
-            name: variable_names.0.iter().position(|x| x == s).unwrap() as u16,
-        };
     }
 }
 
@@ -385,48 +409,45 @@ impl Into<u16> for Variable {
     }
 }
 
-pub enum Label {
-    L0 = 0b000,
-    L1 = 0b001,
-    L2 = 0b010,
-    L3 = 0b011,
-    L4 = 0b100,
-    L5 = 0b101,
-    L6 = 0b110,
-    L7 = 0b111,
+pub struct Label {
+    pub name: u16,
 }
 
-impl str::FromStr for Label {
-    type Err = ();
+impl Addressable for Label {
+    fn new(s: &str, label_names: &mut AddressNames) -> Self {
+        // check that the label name does not exist
+        if label_names.contains(s) {
+            panic!("Label already exists");
+        }
+        return Label {
+            name: label_names.add(s),
+        };
+    }
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "L0" => Ok(Label::L0),
-            "L1" => Ok(Label::L1),
-            "L2" => Ok(Label::L2),
-            "L3" => Ok(Label::L3),
-            "L4" => Ok(Label::L4),
-            "L5" => Ok(Label::L5),
-            "L6" => Ok(Label::L6),
-            "L7" => Ok(Label::L7),
-            _ => Err(()),
+    fn from_str(s: &str, label_names: &mut AddressNames) -> Self {
+        {
+            // check that the label name exists
+            if !label_names.contains(s) {
+                return Label::new(s, label_names);
+            }
+            return Label {
+                name: label_names.0.iter().position(|x| x == s).unwrap() as u16,
+            };
         }
     }
 }
 
 impl From<u3> for Label {
     fn from(i: u3) -> Self {
-        match i {
-            0b000 => Label::L0,
-            0b001 => Label::L1,
-            0b010 => Label::L2,
-            0b011 => Label::L3,
-            0b100 => Label::L4,
-            0b101 => Label::L5,
-            0b110 => Label::L6,
-            0b111 => Label::L7,
-            _ => panic!("Invalid label"),
+        Label {
+            name: (i & 0b111) as u16,
         }
+    }
+}
+
+impl Into<u3> for Label {
+    fn into(self) -> u3 {
+        self.name as u3
     }
 }
 

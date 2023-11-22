@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 mod bwfile;
 mod enums;
 mod program;
@@ -47,19 +48,15 @@ fn main() {
         if line.is_empty() {
             continue;
         }
-        let instruction: Instruction =
-            line.translate(&current_category, &mut program.variable_names);
+        let instruction: Instruction = line.translate(
+            &current_category,
+            &mut program.variable_names,
+            &mut program.label_names,
+        );
         // print the instruction in 32 bits (u32)
         println!(
             "Intruction in 32 bits is {:032b}",
             Into::<u32>::into(instruction)
         );
-        // Expected output:
-        // File: 20_bytes.bin
-        // 111111111111111111111111111111 01
-        // 00000 00 010010000000 0000000000000
-        // 00000 01 010100000000 0000000000000
-        // 00000 10 100000000001 0000000000000
-        // 00000 11 001000000000 0000000000000
     }
 }
