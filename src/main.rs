@@ -3,11 +3,6 @@ mod bwfile;
 mod enums;
 mod program;
 
-use crate::{
-    bwfile::{LineCategory, LineType},
-    enums::Instruction,
-};
-
 fn main() {
     // get the name of the file from the command line
     let args: Vec<String> = std::env::args().collect();
@@ -30,33 +25,19 @@ fn main() {
     println!("File: {}", bwfile.filename);
     println!("Extension: {}", bwfile.extension);
 
-    // read the file
-    let buffer: Vec<LineType> = bwfile.read();
+    let t1 = std::time::Instant::now();
+    program.load(bwfile);
+    println!("Time to load: {:?}", t1.elapsed());
+    // for instruction in program.instructions.iter() {
+    //     println!("{:?}", instruction);
+    // }
+    let t2 = std::time::Instant::now();
+    program.run();
+    println!("Time to run: {:?}", t2.elapsed());
 
-    // parse the file
-    let mut current_category: LineCategory = LineCategory::NONE;
-    for line in buffer {
-        if line.is_category() {
-            current_category = line.get_category();
-            println!("Current category : {:?}", current_category);
-            continue;
-        }
-        if current_category == LineCategory::NONE {
-            panic!("Invalid category");
-        }
-        // check if line is not empty
-        if line.is_empty() {
-            continue;
-        }
-        let instruction: Instruction = line.translate(
-            &current_category,
-            &mut program.variable_names,
-            &mut program.label_names,
-        );
-        // print the instruction in 32 bits (u32)
-        println!(
-            "Intruction in 32 bits is {:032b}",
-            Into::<u32>::into(instruction)
-        );
-    }
+    // let t3 = std::time::Instant::now();
+    // println!("{}", bwfile.export());
+    // println!("Time to export: {:?}", t3.elapsed());
+
+    println!("Program finished");
 }

@@ -1,18 +1,51 @@
-use crate::enums::Addressable;
 use crate::enums::{AddressNames, Extension, Instruction, Label, Parameter, Register, Variable};
 use std::io::Read;
 use std::str::FromStr;
 
+// define macros to convert a string to a Instruction with a parameter and a register
+macro_rules! str_to_instruction {
+    ($instruction:ident, $line:ident, $variable_names: ident) => {
+        let register = $line.next().unwrap();
+        let parameter = $line.next().unwrap();
+        return Instruction::$instruction(
+            Register::from_str(register).unwrap(),
+            Parameter::from_str(parameter, $variable_names),
+        )
+    };
+    ($instruction:ident, $line:ident, $variable_names: ident, $label_names: ident) => {
+        let parameter_1 = $line.next().unwrap();
+        let parameter_2 = $line.next().unwrap();
+        let label = $line.next().unwrap();
+        return Instruction::$instruction(
+            Parameter::from_str(parameter_1, $variable_names),
+            Parameter::from_str(parameter_2, $variable_names),
+            Label::from_str(label, $label_names),
+        );
+    };
+}
+
+macro_rules! bin_to_instruction {
+    ($instruction:ident, $line:ident) => {
+        let register = ($line >> 25) & 0b11; // get the register
+        let parameter = ($line >> 13) & 0b111111111111; // get the parameter
+        return Instruction::$instruction(Register::from(register as u8), Parameter::from(parameter))
+    };
+    // overload macro for instructions with 2 parameters and a label
+    ($instruction:ident, $line:ident, $_:ident) => {
+        let parameter_1 = ($line >> 15) & 0b111111111111; // get the first parameter
+        let parameter_2 = ($line >> 3) & 0b111111111111; // get the second parameter
+        let label = $line & 0b111; // get the label
+        return Instruction::$instruction(
+            Parameter::from(parameter_1),
+            Parameter::from(parameter_2),
+            Label::from(label as u8),
+        );
+    };
+}
+
 pub enum LineType {
     String(String),
     Bin(u32),
-}
-
-#[derive(PartialEq, Debug)]
-pub enum LineCategory {
-    DATA = 0b00,
-    CODE = 0b01,
-    NONE,
 }
 
 impl LineType {
@@ -26,6 +59,8 @@ impl LineType {
         if *category == LineCategory::CODE {
             match self {
                 LineType::String(line) => {
+                    // remove leading and trailing whitespaces
+                    let line = line.trim();
                     // check if line is a label
                     if line.ends_with(":") {
                         let lbl_name = line.replace(":", "");
@@ -35,13 +70,74 @@ impl LineType {
                     let instruction = line.next().unwrap();
                     match instruction {
                         "LDA" => {
-                            let register = line.next().unwrap();
-                            let parameter = line.next().unwrap(); // get the parameter
-                            return Instruction::LDA(
-                                Register::from_str(register).unwrap(),
+                            str_to_instruction!(LDA, line, variable_names);
+                        }
+                        "STR" => {
+                            let variable = line.next().unwrap();
+                            let parameter = line.next().unwrap();
+                            return Instruction::STR(
+                                Variable::from_str(variable, variable_names),
                                 Parameter::from_str(parameter, variable_names),
-                            )
-                            .into();
+                            );
+                        }
+                        "PUSH" => {
+                            let parameter = line.next().unwrap();
+                            return Instruction::PUSH(Parameter::from_str(
+                                parameter,
+                                variable_names,
+                            ));
+                        }
+                        "POP" => {
+                            let register = line.next().unwrap();
+                            return Instruction::POP(Register::from_str(register).unwrap());
+                        }
+                        "OR" => {
+                            str_to_instruction!(OR, line, variable_names);
+                        }
+                        "AND" => {
+                            str_to_instruction!(AND, line, variable_names);
+                        }
+                        "ADD" => {
+                            str_to_instruction!(ADD, line, variable_names);
+                        }
+                        "SUB" => {
+                            str_to_instruction!(SUB, line, variable_names);
+                        }
+                        "MUL" => {
+                            str_to_instruction!(MUL, line, variable_names);
+                        }
+                        "DIV" => {
+                            str_to_instruction!(DIV, line, variable_names);
+                        }
+                        "MOD" => {
+                            str_to_instruction!(MOD, line, variable_names);
+                        }
+                        "INC" => {
+                            let register = line.next().unwrap();
+                            return Instruction::INC(Register::from_str(register).unwrap());
+                        }
+                        "DEC" => {
+                            let register = line.next().unwrap();
+                            return Instruction::DEC(Register::from_str(register).unwrap());
+                        }
+                        "BEQ" => {
+                            str_to_instruction!(BEQ, line, variable_names, label_names);
+                        }
+                        "BNE" => {
+                            str_to_instruction!(BNE, line, variable_names, label_names);
+                        }
+                        "BBG" => {
+                            str_to_instruction!(BBG, line, variable_names, label_names);
+                        }
+                        "BSM" => {
+                            str_to_instruction!(BSM, line, variable_names, label_names);
+                        }
+                        "JMP" => {
+                            let label = line.next().unwrap();
+                            return Instruction::JMP(Label::from_str(label, label_names));
+                        }
+                        "HLT" => {
+                            return Instruction::HLT;
                         }
                         _ => panic!("Invalid instruction"),
                     }
@@ -50,13 +146,75 @@ impl LineType {
                     let opcode = line >> 27; // get the instruction opcode
                     match opcode {
                         0b00000 => {
-                            let register = ((line >> 25) & 0b11) as u8; // get the register
-                            let parameter = ((line >> 13) & 0b111111111111) as u32; // get the parameter
-                            return Instruction::LDA(
-                                Register::from(register),
+                            bin_to_instruction!(LDA, line);
+                        }
+                        0b00001 => {
+                            let variable = ((line >> 17) & 0b1111111111) as u16; // get the variable
+                            let parameter = ((line >> 5) & 0b1111111111) as u32; // get the parameter
+                            return Instruction::STR(
+                                Variable::from(variable),
                                 Parameter::from(parameter),
-                            )
-                            .into();
+                            );
+                        }
+                        0b00010 => {
+                            let parameter = ((line >> 15) & 0b1111111111) as u32; // get the parameter
+                            return Instruction::PUSH(Parameter::from(parameter));
+                        }
+                        0b00011 => {
+                            let register = ((line >> 25) & 0b11111) as u8; // get the register
+                            return Instruction::POP(Register::from(register));
+                        }
+                        0b00100 => {
+                            bin_to_instruction!(AND, line);
+                        }
+                        0b00101 => {
+                            bin_to_instruction!(OR, line);
+                        }
+                        0b00111 => {
+                            bin_to_instruction!(ADD, line);
+                        }
+                        0b01000 => {
+                            bin_to_instruction!(SUB, line);
+                        }
+                        0b01001 => {
+                            bin_to_instruction!(DIV, line);
+                        }
+                        0b01010 => {
+                            bin_to_instruction!(MUL, line);
+                        }
+                        0b01011 => {
+                            bin_to_instruction!(MOD, line);
+                        }
+                        0b01100 => {
+                            let register = ((line >> 25) & 0b11) as u8; // get the register
+                            return Instruction::INC(Register::from(register));
+                        }
+                        0b01101 => {
+                            let register = ((line >> 25) & 0b11111) as u8; // get the register
+                            return Instruction::DEC(Register::from(register));
+                        }
+                        0b01110 => {
+                            bin_to_instruction!(BEQ, line, line);
+                        }
+                        0b01111 => {
+                            bin_to_instruction!(BNE, line, line);
+                        }
+                        0b10000 => {
+                            bin_to_instruction!(BBG, line, line);
+                        }
+                        0b10001 => {
+                            bin_to_instruction!(BSM, line, line);
+                        }
+                        0b10010 => {
+                            let label = (line >> 24) & 0b111; // get the label
+                            return Instruction::JMP(Label::from(label as u8));
+                        }
+                        0b10011 => {
+                            return Instruction::HLT;
+                        }
+                        0b11110 => {
+                            let label = (line >> 24) & 0b111; // get the label
+                            return Instruction::LABEL(Label::from(label as u8));
                         }
                         _ => panic!("Invalid instruction"),
                     }
@@ -77,8 +235,9 @@ impl LineType {
                     return Instruction::VARIABLE(Variable::from(name as u16), value);
                 }
             }
+        } else {
+            panic!("Invalid category");
         }
-        return Instruction::HLT;
     }
 
     pub fn is_category(&self) -> bool {
@@ -92,8 +251,9 @@ impl LineType {
                 return false;
             }
             LineType::Bin(line) => {
-                // first 30 bits are 1
-                if line >> 2 == 0b111111111111111111111111111111 {
+                // first 5 bits are 1
+                let line = line >> 27;
+                if line == 0b11111 {
                     return true;
                 }
                 return false;
@@ -115,10 +275,13 @@ impl LineType {
                 return LineCategory::NONE;
             }
             LineType::Bin(line) => {
-                // first 30 bits are 1
-                if line & 0b11 == 0b00 {
+                // first 5 bits are 1 and next 2 bits are category number
+                let line = line >> 25;
+                // next 2 bits are category number
+                let line = line & 0b11;
+                if line == 0b00 {
                     return LineCategory::DATA;
-                } else if line & 0b11 == 0b01 {
+                } else if line == 0b01 {
                     return LineCategory::CODE;
                 } else {
                     panic!("Invalid category");
@@ -141,6 +304,51 @@ impl LineType {
                 }
                 return false;
             }
+        }
+    }
+
+    pub fn is_comment(&self) -> bool {
+        match self {
+            LineType::String(line) => {
+                // remove whitespaces
+                let line = line.trim();
+                if line.starts_with(";") {
+                    return true;
+                }
+                return false;
+            }
+            LineType::Bin(_) => {
+                return false;
+            }
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum LineCategory {
+    DATA = 0b00,
+    CODE = 0b01,
+    NONE,
+}
+
+impl Into<u32> for LineCategory {
+    fn into(self) -> u32 {
+        match self {
+            LineCategory::DATA => {
+                let mut res: u32 = 0b11111;
+                res <<= 2;
+                res |= 0b00; // 2 next bits are category number
+                res <<= 25; // shift 27 bits to get 32 bits
+                return res;
+            }
+            LineCategory::CODE => {
+                let mut res: u32 = 0b11111;
+                res <<= 2;
+                res |= 0b01; // 2 next bits are category number
+                res <<= 25; // shift 27 bits to get 32 bits
+                return res;
+            }
+            LineCategory::NONE => panic!("Invalid category"),
         }
     }
 }
@@ -226,5 +434,37 @@ impl BWFile {
                 return buffer;
             }
         }
+    }
+
+    pub fn export(&self) -> String {
+        let buffer = self.read();
+        let mut variable_names = AddressNames::new();
+        let mut label_names = AddressNames::new();
+        let mut res: Vec<u32> = Vec::new();
+        let mut current_category: LineCategory = LineCategory::NONE;
+        for line in buffer {
+            if line.is_category() {
+                current_category = line.get_category();
+                res.push(current_category.into());
+                continue;
+            }
+            if current_category == LineCategory::NONE {
+                panic!("Invalid category");
+            }
+            if line.is_empty() || line.is_comment() {
+                continue;
+            }
+            let instruction =
+                line.translate(&current_category, &mut variable_names, &mut label_names);
+            res.push(instruction.into());
+        }
+        let res = res
+            .iter()
+            .map(|line| {
+                return format!("{:032b}", line);
+            })
+            .collect::<Vec<String>>()
+            .join("");
+        return res;
     }
 }

@@ -1,0 +1,58 @@
+#DATA
+INPUTA 123
+INPUTB 456
+INPUT 0
+RES 0
+
+#CODE
+; init the input value such that input = INPUTA * INPUTB
+LDA T0 INPUTA
+MUL T0 INPUTB
+STR INPUT T0
+; computing the totient function of the input
+; T0 is the number of found primes
+; T1 is the current number to check
+LDA T0 0
+LDA T1 1
+; main loop for computing the totient function
+LOOP:
+    ; check if T1 is greater than the input
+    BBG T1 INPUT END
+    ; compute the gcd of T0 and T1
+    ; push b and a on the stack
+    PUSH T1
+    PUSH INPUT
+    JMP GCD
+    GCDRETURN:
+    ; get gcd from the stack
+    POP T2
+    ; check if gcd is different from 1
+    BNE T2 1 NOPRIME
+        INC T0
+    NOPRIME:
+    ; increment T1
+    INC T1
+    JMP LOOP
+GCD:
+    ; get the value of A and B
+    ; pop a in T2 and b in T3
+    POP T2
+    POP T3
+    ; check if B is equal to 0
+    BNE T3 0 GCDNOTZERO
+        ; push the value of A and return
+        PUSH T2
+        JMP GCDRETURN
+    GCDNOTZERO:
+    ; compute the remainder of A and B
+    MOD T2 T3
+    ; push the value of B and A
+    PUSH T2
+    PUSH T3
+    ; jump to GCD
+    JMP GCD
+END:
+    ; store the result in RES
+    STR RES T0
+    ; halt the program
+    HLT

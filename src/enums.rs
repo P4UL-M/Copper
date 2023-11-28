@@ -1,14 +1,16 @@
 #![allow(non_camel_case_types)]
 
 use core::fmt;
-use std::str;
+use std::{fmt::Debug, str::FromStr};
 pub type u2 = u8; // Register size (4 possible registers)
-pub type u3 = u8; // Variable and Label size (8 possible labels per program)
+pub type u3 = u8; // Label name size (8 possible labels per program)
 pub type u12 = u32; // Parameter type + value size (4096 possible parameters per program)
+pub type u10 = u16; // Variable name size (1024 possible variables per program)
 
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Instruction {
     LDA(Register, Parameter),
-    STR(Register, Parameter),
+    STR(Variable, Parameter),
     PUSH(Parameter),
     POP(Register),
     AND(Register, Parameter),
@@ -21,11 +23,11 @@ pub enum Instruction {
     MOD(Register, Parameter),
     INC(Register),
     DEC(Register),
-    BEQ(Parameter, Parameter, u3),
-    BNE(Parameter, Parameter, u3),
-    BBG(Parameter, Parameter, u3),
-    BSM(Parameter, Parameter, u3),
-    JMP(u3),
+    BEQ(Parameter, Parameter, Label),
+    BNE(Parameter, Parameter, Label),
+    BBG(Parameter, Parameter, Label),
+    BSM(Parameter, Parameter, Label),
+    JMP(Label),
     HLT,
     VARIABLE(Variable, u32),
     LABEL(Label),
@@ -45,11 +47,11 @@ impl Into<u32> for Instruction {
             }
             Instruction::STR(r, p) => {
                 let mut res: u32 = 0b00001;
-                res = res << 2;
-                res = res | r as u32; // 2 bits for the register
+                res = res << 10;
+                res = res | Into::<u10>::into(r) as u32; // 10 bits for the variable
                 res = res << 12;
                 res = res | Into::<u12>::into(p); // 12 bits for the parameter
-                res = res << 13; // 13 bits to get to 32 bits
+                res = res << 5; // 10 bits to get to 32 bits
                 return res;
             }
             Instruction::PUSH(p) => {
@@ -157,7 +159,7 @@ impl Into<u32> for Instruction {
                 res = res << 12;
                 res = res | Into::<u12>::into(p2); // 12 bits for the parameter
                 res = res << 3;
-                res = res | (lbl as u32 & 0b111); // 3 bits for the label
+                res = res | (Into::<u3>::into(lbl) as u32 & 0b111); // 3 bits for the label
                 return res;
             }
             Instruction::BNE(p1, p2, lbl) => {
@@ -167,7 +169,7 @@ impl Into<u32> for Instruction {
                 res = res << 12;
                 res = res | Into::<u12>::into(p2); // 12 bits for the parameter
                 res = res << 3;
-                res = res | (lbl as u32 & 0b111); // 3 bits for the label
+                res = res | (Into::<u3>::into(lbl) as u32 & 0b111); // 3 bits for the label
                 return res;
             }
             Instruction::BSM(p1, p2, lbl) => {
@@ -177,7 +179,7 @@ impl Into<u32> for Instruction {
                 res = res << 12;
                 res = res | Into::<u12>::into(p2); // 12 bits for the parameter
                 res = res << 3;
-                res = res | (lbl as u32 & 0b111); // 3 bits for the label
+                res = res | (Into::<u3>::into(lbl) as u32 & 0b111); // 3 bits for the label
                 return res;
             }
             Instruction::BBG(p1, p2, lbl) => {
@@ -187,13 +189,13 @@ impl Into<u32> for Instruction {
                 res = res << 12;
                 res = res | Into::<u12>::into(p2); // 12 bits for the parameter
                 res = res << 3;
-                res = res | (lbl as u32 & 0b111); // 3 bits for the label
+                res = res | (Into::<u3>::into(lbl) as u32 & 0b111); // 3 bits for the label
                 return res;
             }
-            Instruction::JMP(i) => {
+            Instruction::JMP(lbl) => {
                 let mut res: u32 = 0b10010;
                 res = res << 3;
-                res = res | (i as u32 & 0b111); // 3 bits for the label
+                res = res | (Into::<u3>::into(lbl) as u32 & 0b111); // 3 bits for the label
                 res = res << 24; // 24 bits to get to 32 bits
                 return res;
             }
@@ -223,9 +225,10 @@ impl Into<u32> for Instruction {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Parameter {
     Register(Register),
-    Variable(u16),
+    Variable(Variable),
     Constant(u12),
 }
 
@@ -233,7 +236,7 @@ impl Parameter {
     pub fn from_str(s: &str, variable_names: &mut AddressNames) -> Self {
         // check if the string is a register
         match s.parse::<Register>() {
-            Ok(_) => return Parameter::Register(s.parse::<Register>().unwrap()),
+            Ok(_) => return Parameter::Register(s.parse::<Register>().unwrap().into()),
             Err(_) => (),
         }
         // check if the string is a constant
@@ -254,11 +257,13 @@ impl From<u12> for Parameter {
         match param_type {
             0b00 => {
                 let register = ((i >> 8) & 0b11) as u2;
-                return Parameter::Register(Register::from(register));
+                let register = Into::<Register>::into(register);
+                return Parameter::Register(register);
             }
             0b01 => {
-                let variable = (i >> 7) & 0b111;
-                return Parameter::Variable(variable as u16);
+                let variable = i & 0b1111111111;
+                let variable = Into::<Variable>::into(variable as u10);
+                return Parameter::Variable(variable);
             }
             0b10 => {
                 let constant = i & 0b1111111111;
@@ -282,7 +287,7 @@ impl Into<u12> for Parameter {
             Parameter::Variable(i) => {
                 let mut res: u32 = 0b01; // 2 bits for the parameter type
                 res = res << 10;
-                res = res | (i as u32 & 0b1111111111); // 10 bits for the variable
+                res = res | (Into::<u10>::into(i) as u32 & 0b1111111111); // 10 bits for the variable
                 return res;
             }
             Parameter::Constant(i) => {
@@ -295,6 +300,7 @@ impl Into<u12> for Parameter {
     }
 }
 
+#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone)]
 pub enum Register {
     T0,
     T1,
@@ -303,7 +309,7 @@ pub enum Register {
 }
 
 // impt from_str for Register
-impl str::FromStr for Register {
+impl FromStr for Register {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -329,7 +335,16 @@ impl From<u2> for Register {
     }
 }
 
-//TODO: Change structure of Variable and Label so that we can choose the name of the variable in string format
+impl Into<u2> for Register {
+    fn into(self) -> u2 {
+        match self {
+            Register::T0 => 0b00,
+            Register::T1 => 0b01,
+            Register::T2 => 0b10,
+            Register::T3 => 0b11,
+        }
+    }
+}
 
 pub struct AddressNames(Vec<String>);
 
@@ -348,7 +363,7 @@ impl AddressNames {
         }
         // check if variable name is valid
         if s.chars().any(|c| !c.is_alphanumeric()) {
-            panic!("Invalid variable name");
+            panic!("You can only use alphanumeric characters in variable names");
         }
         // check if variable name is not a register
         match s.parse::<Register>() {
@@ -363,72 +378,81 @@ impl AddressNames {
     }
 }
 
-pub trait Addressable {
-    fn new(s: &str, address_names: &mut AddressNames) -> Self;
-
-    fn from_str(s: &str, address_names: &mut AddressNames) -> Self;
-}
-
+#[derive(Eq, Hash, PartialEq, Copy, Clone)]
 pub struct Variable {
     pub name: u16,
+    pub alias: Option<&'static str>,
 }
 
-impl Addressable for Variable {
-    fn new(s: &str, address_names: &mut AddressNames) -> Self {
+impl Variable {
+    pub fn new(s: &str, address_names: &mut AddressNames) -> Self {
         // check that the variable name does not exist
         if address_names.contains(s) {
             panic!("Address already exists");
         }
+        // make the lifetime static
+        let owned_string: String = s.to_string();
+        let static_string: &'static str = Box::leak(owned_string.into_boxed_str());
         return Variable {
             name: address_names.add(s),
+            alias: Some(static_string),
         };
     }
 
-    fn from_str(s: &str, address_names: &mut AddressNames) -> Self {
+    pub fn from_str(s: &str, address_names: &mut AddressNames) -> Self {
         {
             // check that the variable name exists
             if !address_names.contains(s) {
                 panic!("Address does not exist");
             }
+            // make the lifetime static
+            let owned_string: String = s.to_string();
+            let static_string: &'static str = Box::leak(owned_string.into_boxed_str());
             return Variable {
                 name: address_names.0.iter().position(|x| x == s).unwrap() as u16,
+                alias: Some(static_string),
             };
         }
     }
 }
 
-impl From<u16> for Variable {
-    fn from(i: u16) -> Self {
-        Variable { name: i as u16 }
+impl From<u10> for Variable {
+    fn from(i: u10) -> Self {
+        Variable {
+            name: i as u10,
+            alias: None,
+        }
     }
 }
 
-impl Into<u16> for Variable {
-    fn into(self) -> u16 {
+impl Into<u10> for Variable {
+    fn into(self) -> u10 {
         self.name
     }
 }
 
+impl Debug for Variable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.alias {
+            Some(s) => write!(f, "{}", s),
+            None => write!(f, "V{}", self.name),
+        }
+    }
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Copy)]
 pub struct Label {
     pub name: u16,
 }
 
-impl Addressable for Label {
-    fn new(s: &str, label_names: &mut AddressNames) -> Self {
-        // check that the label name does not exist
-        if label_names.contains(s) {
-            panic!("Label already exists");
-        }
-        return Label {
-            name: label_names.add(s),
-        };
-    }
-
-    fn from_str(s: &str, label_names: &mut AddressNames) -> Self {
+impl Label {
+    pub fn from_str(s: &str, label_names: &mut AddressNames) -> Self {
         {
             // check that the label name exists
             if !label_names.contains(s) {
-                return Label::new(s, label_names);
+                return Label {
+                    name: label_names.add(s),
+                };
             }
             return Label {
                 name: label_names.0.iter().position(|x| x == s).unwrap() as u16,
