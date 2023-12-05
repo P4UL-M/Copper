@@ -28,6 +28,7 @@ pub struct Program {
     stack: Vec<u32>,
     memory: IndexMap<Variable, u32>,
     counter: usize,
+    verbose: bool,
 }
 
 impl Program {
@@ -40,6 +41,7 @@ impl Program {
             stack: Vec::new(),
             memory: IndexMap::new(),
             counter: 0,
+            verbose: std::env::var("RUST_LOG").is_ok(),
         }
     }
 
@@ -115,7 +117,10 @@ impl Program {
 
     pub fn get_variable(&self, name: Variable) -> u32 {
         if !self.memory.contains_key(&name) {
-            panic!("Variable {:?} not found", name);
+            if self.verbose {
+                println!("Warning: Accessing uninitialized address {:?}!", name);
+            }
+            return 0;
         }
         *self.memory.get(&name).unwrap()
     }

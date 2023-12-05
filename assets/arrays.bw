@@ -1,7 +1,5 @@
 #DATA 
 A 4
-B 5
-C 2
 
 #CODE
 LDA T0 A+1

@@ -5,12 +5,39 @@ mod program;
 
 fn main() {
     // get the name of the file from the command line
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() < 2 {
-        println!("Usage: bw <filename>");
-        std::process::exit(1);
+    let mut args: Vec<String> = std::env::args().collect();
+    // remove the first argument (the name of the program)
+    args.remove(0);
+    // check if there is some parameter argument
+    for arg in args.iter() {
+        if arg == "-h" || arg == "--help" {
+            println!("Usage: bw <filename>");
+            std::process::exit(0);
+        }
+        if arg == "-V" || arg == "--version" {
+            println!("Version: {}", env!("CARGO_PKG_VERSION"));
+            std::process::exit(0);
+        }
+        if arg == "-v" || arg == "--verbose" {
+            println!("Verbose mode");
+            std::env::set_var("RUST_LOG", "verbose");
+        }
     }
-    let filename: &str = &args[1];
+    // get the filename (argument without a dash)
+    let filename: String = loop {
+        match args.pop() {
+            Some(arg) => {
+                if !arg.starts_with("-") {
+                    break arg;
+                }
+            }
+            None => {
+                println!("Usage: bw <filename>");
+                std::process::exit(1);
+            }
+        }
+    };
+    let filename = filename.as_str();
 
     let mut program = program::Program::new();
 
