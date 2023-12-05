@@ -2,3 +2,7 @@
 name = "byte_whisperer"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+indexmap = "2.1.0"
+regex = "1.10.2"

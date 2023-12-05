@@ -25,19 +25,41 @@ fn main() {
     println!("File: {}", bwfile.filename);
     println!("Extension: {}", bwfile.extension);
 
-    let t1 = std::time::Instant::now();
-    program.load(bwfile);
-    println!("Time to load: {:?}", t1.elapsed());
-    // for instruction in program.instructions.iter() {
-    //     println!("{:?}", instruction);
-    // }
-    let t2 = std::time::Instant::now();
-    program.run();
-    println!("Time to run: {:?}", t2.elapsed());
-
-    // let t3 = std::time::Instant::now();
-    // println!("{}", bwfile.export());
-    // println!("Time to export: {:?}", t3.elapsed());
-
+    // ask if the user wants to export the file or run it
+    println!("What do you want to do?\n1. Export\n2. Run\n3. Run and debug\n4. Exit");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
+    let input: u32 = input.trim().parse().unwrap();
+    match input {
+        1 => {
+            let t3 = std::time::Instant::now();
+            println!("{}", bwfile.export());
+            println!("Time to export: {:?}", t3.elapsed());
+            std::process::exit(0);
+        }
+        2 => {
+            let t1 = std::time::Instant::now();
+            program.load(bwfile);
+            println!("Time to load: {:?}", t1.elapsed());
+            let t2 = std::time::Instant::now();
+            program.run();
+            println!("Time to run: {:?}", t2.elapsed());
+        }
+        3 => {
+            let t1 = std::time::Instant::now();
+            program.load(bwfile);
+            println!("Time to load: {:?}", t1.elapsed());
+            let t2 = std::time::Instant::now();
+            program.run_debug();
+            println!("Time to run: {:?}", t2.elapsed());
+        }
+        4 => {
+            std::process::exit(0);
+        }
+        _ => {
+            println!("Invalid input");
+            std::process::exit(1);
+        }
+    }
     println!("Program finished");
 }

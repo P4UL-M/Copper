@@ -1,11 +1,13 @@
 #![allow(non_camel_case_types)]
 
 use core::fmt;
-use std::{fmt::Debug, str::FromStr};
+use regex::Regex;
+use std::{fmt::Debug, hash::Hash, str::FromStr};
 pub type u2 = u8; // Register size (4 possible registers)
 pub type u3 = u8; // Label name size (8 possible labels per program)
 pub type u12 = u32; // Parameter type + value size (4096 possible parameters per program)
 pub type u10 = u16; // Variable name size (1024 possible variables per program)
+pub type Constant = u10; // Constant size (1024 possible constants per program)
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Instruction {
@@ -28,6 +30,8 @@ pub enum Instruction {
     BBG(Parameter, Parameter, Label),
     BSM(Parameter, Parameter, Label),
     JMP(Label),
+    SRL(Register, Constant),
+    SRR(Register, Constant),
     HLT,
     VARIABLE(Variable, u32),
     LABEL(Label),
@@ -199,8 +203,26 @@ impl Into<u32> for Instruction {
                 res = res << 24; // 24 bits to get to 32 bits
                 return res;
             }
-            Instruction::HLT => {
+            Instruction::SRL(r, c) => {
                 let mut res: u32 = 0b10011;
+                res = res << 2;
+                res = res | r as u32; // 2 bits for the register
+                res = res << 10;
+                res = res | (c & 0b1111111111) as u32; // 10 bits for the constant
+                res = res << 15; // 18 bits to get to 32 bits
+                return res;
+            }
+            Instruction::SRR(r, c) => {
+                let mut res: u32 = 0b10100;
+                res = res << 2;
+                res = res | r as u32; // 2 bits for the register
+                res = res << 10;
+                res = res | (c & 0b1111111111) as u32; // 10 bits for the constant
+                res = res << 15; // 18 bits to get to 32 bits
+                return res;
+            }
+            Instruction::HLT => {
+                let mut res: u32 = 0b10101;
                 res = res << 27; // 27 bits to get to 32 bits
                 return res;
             }
@@ -378,7 +400,7 @@ impl AddressNames {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Copy, Clone)]
+#[derive(Eq, Copy, Clone)]
 pub struct Variable {
     pub name: u16,
     pub alias: Option<&'static str>,
@@ -401,17 +423,51 @@ impl Variable {
 
     pub fn from_str(s: &str, address_names: &mut AddressNames) -> Self {
         {
-            // check that the variable name exists
-            if !address_names.contains(s) {
-                panic!("Address does not exist");
-            }
-            // make the lifetime static
-            let owned_string: String = s.to_string();
-            let static_string: &'static str = Box::leak(owned_string.into_boxed_str());
-            return Variable {
-                name: address_names.0.iter().position(|x| x == s).unwrap() as u16,
-                alias: Some(static_string),
+            // split if there is a + in the string
+            let s: Vec<&str> = if s.contains("+") {
+                s.split("+").collect()
+            } else if Regex::new(r"\[\d+\]$").unwrap().is_match(s) {
+                // split the string into two parts with in first part the variable name and in the second part the offset
+                let name = s.split("[").collect::<Vec<&str>>()[0];
+                let offset = s.split("]").collect::<Vec<&str>>()[0]
+                    .split("[")
+                    .collect::<Vec<&str>>()[1];
+                println!("name: {}, offset: {}", name, offset);
+                vec![name, offset]
+            } else {
+                vec![s]
             };
+            if s.len() > 1 {
+                // check that the variable name exists
+                if !address_names.contains(s[0]) {
+                    panic!("Address does not exist");
+                }
+                // get the the value of the offset
+                let offset: u16 = s[1].parse().unwrap();
+                // make the lifetime static
+                let mut owned_string: String = s[0].to_string();
+                owned_string.push_str("+");
+                owned_string.push_str(s[1]);
+                let static_string: &'static str = Box::leak(owned_string.into_boxed_str());
+                return Variable {
+                    name: address_names.0.iter().position(|x| x == s[0]).unwrap() as u16 + offset,
+                    alias: Some(static_string),
+                };
+            } else if s.len() == 1 {
+                // check that the variable name exists
+                if !address_names.contains(s[0]) {
+                    panic!("Address does not exist");
+                }
+                // make the lifetime static
+                let owned_string: String = s[0].to_string();
+                let static_string: &'static str = Box::leak(owned_string.into_boxed_str());
+                return Variable {
+                    name: address_names.0.iter().position(|x| x == s[0]).unwrap() as u16,
+                    alias: Some(static_string),
+                };
+            } else {
+                panic!("Invalid variable address");
+            }
         }
     }
 }
@@ -437,6 +493,19 @@ impl Debug for Variable {
             Some(s) => write!(f, "{}", s),
             None => write!(f, "V{}", self.name),
         }
+    }
+}
+
+impl Hash for Variable {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // hash using only the name of the variable
+        self.name.hash(state);
+    }
+}
+
+impl PartialEq for Variable {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
     }
 }
 

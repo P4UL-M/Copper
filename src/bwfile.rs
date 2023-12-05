@@ -136,6 +136,22 @@ impl LineType {
                             let label = line.next().unwrap();
                             return Instruction::JMP(Label::from_str(label, label_names));
                         }
+                        "SRL" => {
+                            let register = line.next().unwrap();
+                            let constant = line.next().unwrap();
+                            return Instruction::SRL(
+                                Register::from_str(register).unwrap(),
+                                constant.parse::<u16>().unwrap(),
+                            );
+                        }
+                        "SRR" => {
+                            let register = line.next().unwrap();
+                            let constant = line.next().unwrap();
+                            return Instruction::SRR(
+                                Register::from_str(register).unwrap(),
+                                constant.parse::<u16>().unwrap(),
+                            );
+                        }
                         "HLT" => {
                             return Instruction::HLT;
                         }
@@ -210,6 +226,16 @@ impl LineType {
                             return Instruction::JMP(Label::from(label as u8));
                         }
                         0b10011 => {
+                            let register = ((line >> 25) & 0b11) as u8; // get the register
+                            let constant = ((line >> 15) & 0b1111111111) as u16; // get the constant
+                            return Instruction::SRL(Register::from(register), constant);
+                        }
+                        0b10100 => {
+                            let register = ((line >> 25) & 0b11111) as u8; // get the register
+                            let constant = ((line >> 15) & 0b1111111111) as u16; // get the constant
+                            return Instruction::SRR(Register::from(register), constant);
+                        }
+                        0b10101 => {
                             return Instruction::HLT;
                         }
                         0b11110 => {

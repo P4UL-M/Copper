@@ -1,0 +1,10 @@
+#DATA 
+A 4
+B 5
+C 2
+
+#CODE
+LDA T0 A+1
+ADD T0 A[2]
+SRL T0 1
+HLT

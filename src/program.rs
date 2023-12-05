@@ -1,5 +1,6 @@
 use crate::bwfile::{BWFile, LineCategory, LineType};
 use crate::enums::{AddressNames, Instruction, Label, Parameter, Register, Variable};
+use indexmap::IndexMap;
 use std::collections::HashMap;
 
 // macro to get the value of a parameter
@@ -25,7 +26,7 @@ pub struct Program {
     variable_names: AddressNames,
     label_names: AddressNames,
     stack: Vec<u32>,
-    memory: HashMap<Variable, u32>,
+    memory: IndexMap<Variable, u32>,
     counter: usize,
 }
 
@@ -37,7 +38,7 @@ impl Program {
             variable_names: AddressNames::new(),
             label_names: AddressNames::new(),
             stack: Vec::new(),
-            memory: HashMap::new(),
+            memory: IndexMap::new(),
             counter: 0,
         }
     }
@@ -45,6 +46,24 @@ impl Program {
     pub fn run(&mut self) {
         while self.counter < self.instructions.len() {
             // let t1 = std::time::Instant::now();
+            self.execute_instruction(self.counter);
+            self.counter += 1;
+        }
+        println!("Registers: {:?}", self.registers);
+        println!("Memory: {:?}", self.memory);
+    }
+
+    pub fn run_debug(&mut self) {
+        println!("Starting debug mode\n");
+        while self.counter < self.instructions.len() {
+            println!("Instruction: {:?}", self.instructions[self.counter]);
+            println!("Registers: {:?}", self.registers);
+            println!("Memory: {:?}", self.memory);
+            println!("Stack: {:?}", self.stack);
+            println!("Counter: {}", self.counter);
+            println!("Press enter to continue");
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input).unwrap();
             self.execute_instruction(self.counter);
             self.counter += 1;
         }
@@ -96,7 +115,7 @@ impl Program {
 
     pub fn get_variable(&self, name: Variable) -> u32 {
         if !self.memory.contains_key(&name) {
-            panic!("Variable {:?} does not exist", name);
+            panic!("Variable {:?} not found", name);
         }
         *self.memory.get(&name).unwrap()
     }
@@ -236,6 +255,16 @@ impl Program {
                 if value_1 < value_2 {
                     self.counter = self.find_label(label);
                 }
+            }
+            Instruction::SRL(register, offset) => {
+                let value: u32 = self.get_register(*register);
+                let result: u32 = value << offset;
+                self.set_register(*register, result);
+            }
+            Instruction::SRR(register, offset) => {
+                let value: u32 = self.get_register(*register);
+                let result: u32 = value >> offset;
+                self.set_register(*register, result);
             }
             Instruction::JMP(label) => {
                 self.counter = self.find_label(label);
