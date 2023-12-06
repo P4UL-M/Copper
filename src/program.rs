@@ -28,7 +28,7 @@ pub struct Program {
     stack: Vec<u32>,
     memory: IndexMap<Variable, u32>,
     counter: usize,
-    verbose: bool,
+    pub verbose: bool,
 }
 
 impl Program {
@@ -51,8 +51,10 @@ impl Program {
             self.execute_instruction(self.counter);
             self.counter += 1;
         }
-        println!("Registers: {:?}", self.registers);
-        println!("Memory: {:?}", self.memory);
+        if self.verbose {
+            println!("Registers: {:?}", self.registers);
+            println!("Memory: {:?}", self.memory);
+        }
     }
 
     pub fn run_debug(&mut self) {

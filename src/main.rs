@@ -1,22 +1,52 @@
 use std::fs::File;
 use std::io::Write;
+use std::str::FromStr;
 mod enums;
 mod file;
 mod program;
+
+enum Command {
+    Run,
+    Export,
+}
+
+impl FromStr for Command {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Command, Self::Err> {
+        match input {
+            "run" => Ok(Command::Run),
+            "export" => Ok(Command::Export),
+            _ => Err(()),
+        }
+    }
+}
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const HELP_MESSAGE: &str = "Usage: copper <filename>\n\nOptions:\n\t-h, --help\t\tPrint this help message\n\t-V, --version\t\tPrint version information\n\t-v, --verbose\t\tVerbose mode\n\t-d, --debug\t\tDebug mode\n\nCommands:\n\trun\t\t\tRun the program\n\texport\t\t\tExport the program to a binary file\n\nExamples:\n\tcopper program.co\n\tcopper run program.co\n\tcopper export program.co\n";
 
 fn main() {
     // get the name of the file from the command line
     let mut args: Vec<String> = std::env::args().collect();
     // remove the first argument (the name of the program)
     args.remove(0);
+    let mut command = Command::Run;
+    let command_str = if args.len() > 0 { &args[0] } else { "" };
+    match Command::from_str(&command_str) {
+        Ok(c) => {
+            command = c;
+            args.remove(0);
+        }
+        Err(_) => {}
+    }
     // check if there is some parameter argument
     for arg in args.iter() {
         if arg == "-h" || arg == "--help" {
-            println!("Usage: co <filename>");
+            println!("{}", HELP_MESSAGE);
             std::process::exit(0);
         }
         if arg == "-V" || arg == "--version" {
-            println!("Version: {}", env!("CARGO_PKG_VERSION"));
+            println!("Version: {}", VERSION);
             std::process::exit(0);
         }
         if arg == "-v" || arg == "--verbose" {
@@ -37,7 +67,7 @@ fn main() {
                 }
             }
             None => {
-                println!("Usage: co <filename>");
+                println!("No filename given. Use -h or --help for help.");
                 std::process::exit(1);
             }
         }
@@ -54,16 +84,13 @@ fn main() {
     // create a new CoFile
     let file = file::CoFile::new(filename.to_string());
 
-    println!("File: {}", file.filename);
-    println!("Extension: {}", file.extension);
+    if program.verbose {
+        println!("File: {}", file.filename);
+        println!("Extension: {}", file.extension);
+    }
 
-    // ask if the user wants to export the file or run it
-    println!("What do you want to do?\n1. Export\n2. Run\n3. Run and debug\n4. Exit");
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input).unwrap();
-    let input: u32 = input.trim().parse().unwrap();
-    match input {
-        1 => {
+    match command {
+        Command::Export => {
             let t3 = std::time::Instant::now();
             let data = file.export();
             println!("Exported data: {}", data);
@@ -85,28 +112,17 @@ fn main() {
             println!("Time to export: {:?}", t3.elapsed());
             std::process::exit(0);
         }
-        2 => {
+        Command::Run => {
             let t1 = std::time::Instant::now();
             program.load(file);
             println!("Time to load: {:?}", t1.elapsed());
             let t2 = std::time::Instant::now();
-            program.run();
+            if std::env::var("DEBUG_MODE").is_ok() {
+                program.run_debug();
+            } else {
+                program.run();
+            }
             println!("Time to run: {:?}", t2.elapsed());
-        }
-        3 => {
-            let t1 = std::time::Instant::now();
-            program.load(file);
-            println!("Time to load: {:?}", t1.elapsed());
-            let t2 = std::time::Instant::now();
-            program.run_debug();
-            println!("Time to run: {:?}", t2.elapsed());
-        }
-        4 => {
-            std::process::exit(0);
-        }
-        _ => {
-            println!("Invalid input");
-            std::process::exit(1);
         }
     }
     println!("Program finished");
