@@ -34,6 +34,7 @@ pub enum Instruction {
     SRR(Register, Constant),
     HLT,
     VARIABLE(Variable, u32),
+    ARRAY(Variable, u32, u16),
     LABEL(Label),
 }
 
@@ -227,13 +228,32 @@ impl Into<u32> for Instruction {
                 return res;
             }
             Instruction::VARIABLE(v, i) => {
-                // first 10 bits are variable name
-                let mut res: u32 = Into::<u16>::into(v) as u32;
+                // first bit is data type
+                let mut res: u32 = 0b0;
+                // next 10 bits are variable name
+                res = res << 10;
+                res = res | Into::<u16>::into(v) as u32;
                 // next 10 bits are the value
                 res = res << 10;
                 res = res | (i & 0b1111111111);
-                // shift left 12 bits to get to 32 bits
-                res = res << 12;
+                // shift left 11 bits to get to 32 bits
+                res = res << 11;
+                return res;
+            }
+            Instruction::ARRAY(v, i, l) => {
+                // first bit is data type
+                let mut res: u32 = 0b1;
+                // next 10 bits are array name
+                res = res << 10;
+                res = res | Into::<u16>::into(v) as u32;
+                // next 10 bits are the length of the array
+                res = res << 10;
+                res = res | (l as u32 & 0b1111111111);
+                // next 10 bits are the value
+                res = res << 10;
+                res = res | (i & 0b1111111111);
+                // shift left 1 bits to get to 32 bits
+                res = res << 1;
                 return res;
             }
             Instruction::LABEL(l) => {
@@ -368,6 +388,7 @@ impl Into<u2> for Register {
     }
 }
 
+#[derive(Debug)]
 pub struct AddressNames(Vec<String>);
 
 impl AddressNames {
@@ -375,7 +396,7 @@ impl AddressNames {
         AddressNames(Vec::new())
     }
 
-    fn add(&mut self, s: &str) -> u16 {
+    pub fn add(&mut self, s: &str) -> u16 {
         self.0.push(s.to_string());
         if (self.0.len() as u16 - 1) > 0b1111111111 {
             panic!("Too many variables");
@@ -432,7 +453,6 @@ impl Variable {
                 let offset = s.split("]").collect::<Vec<&str>>()[0]
                     .split("[")
                     .collect::<Vec<&str>>()[1];
-                println!("name: {}, offset: {}", name, offset);
                 vec![name, offset]
             } else {
                 vec![s]
@@ -546,14 +566,14 @@ impl Into<u3> for Label {
 
 #[derive(PartialEq)]
 pub enum Extension {
-    BW,
+    CO,
     BIN,
 }
 
 impl fmt::Display for Extension {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Extension::BW => write!(f, "bw"),
+            Extension::CO => write!(f, "co"),
             Extension::BIN => write!(f, "bin"),
         }
     }

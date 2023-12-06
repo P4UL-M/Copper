@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "byte_whisperer"
+name = "copper"
 version = "0.1.0"
 dependencies = [
  "indexmap",

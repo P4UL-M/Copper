@@ -1,6 +1,9 @@
 #![allow(dead_code)]
-mod bwfile;
+
+use std::fs::File;
+use std::io::Write;
 mod enums;
+mod file;
 mod program;
 
 fn main() {
@@ -11,7 +14,7 @@ fn main() {
     // check if there is some parameter argument
     for arg in args.iter() {
         if arg == "-h" || arg == "--help" {
-            println!("Usage: bw <filename>");
+            println!("Usage: co <filename>");
             std::process::exit(0);
         }
         if arg == "-V" || arg == "--version" {
@@ -32,7 +35,7 @@ fn main() {
                 }
             }
             None => {
-                println!("Usage: bw <filename>");
+                println!("Usage: co <filename>");
                 std::process::exit(1);
             }
         }
@@ -46,11 +49,11 @@ fn main() {
         println!("File {} does not exist", filename);
         std::process::exit(1);
     }
-    // create a new BWFile
-    let bwfile = bwfile::BWFile::new(filename.to_string());
+    // create a new CoFile
+    let file = file::CoFile::new(filename.to_string());
 
-    println!("File: {}", bwfile.filename);
-    println!("Extension: {}", bwfile.extension);
+    println!("File: {}", file.filename);
+    println!("Extension: {}", file.extension);
 
     // ask if the user wants to export the file or run it
     println!("What do you want to do?\n1. Export\n2. Run\n3. Run and debug\n4. Exit");
@@ -60,13 +63,29 @@ fn main() {
     match input {
         1 => {
             let t3 = std::time::Instant::now();
-            println!("{}", bwfile.export());
+            let data = file.export();
+            println!("Exported data: {}", data);
+            let name = file.filename.clone().replace(".co", "");
+            // create a new file with the same name but with the extension .bin and write the exported file to it
+            let mut file = File::create(format!("{}.bin", name)).expect("creation failed");
+            // cut the string into packages of 8 bits
+            let bytes: Vec<u8> = data
+                .chars()
+                .collect::<Vec<char>>()
+                .chunks(8)
+                .map(|chunk| {
+                    let s: String = chunk.iter().collect();
+                    u8::from_str_radix(&s, 2).unwrap()
+                })
+                .collect();
+            // write the bytes to the file
+            file.write_all(&bytes).expect("write failed");
             println!("Time to export: {:?}", t3.elapsed());
             std::process::exit(0);
         }
         2 => {
             let t1 = std::time::Instant::now();
-            program.load(bwfile);
+            program.load(file);
             println!("Time to load: {:?}", t1.elapsed());
             let t2 = std::time::Instant::now();
             program.run();
@@ -74,7 +93,7 @@ fn main() {
         }
         3 => {
             let t1 = std::time::Instant::now();
-            program.load(bwfile);
+            program.load(file);
             println!("Time to load: {:?}", t1.elapsed());
             let t2 = std::time::Instant::now();
             program.run_debug();

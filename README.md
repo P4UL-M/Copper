@@ -1,4 +1,4 @@
-# Byte Whisperer
+# Copper
 
 ## Instruction sets
 

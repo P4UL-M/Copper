@@ -1,5 +1,5 @@
-use crate::bwfile::{BWFile, LineCategory, LineType};
 use crate::enums::{AddressNames, Instruction, Label, Parameter, Register, Variable};
+use crate::file::{CoFile, LineCategory, LineType};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
@@ -38,7 +38,7 @@ impl Program {
             registers: HashMap::new(),
             variable_names: AddressNames::new(),
             label_names: AddressNames::new(),
-            stack: Vec::new(),
+            stack: Vec::with_capacity(4096 / 32),
             memory: IndexMap::new(),
             counter: 0,
             verbose: std::env::var("RUST_LOG").is_ok(),
@@ -73,7 +73,7 @@ impl Program {
         println!("Memory: {:?}", self.memory);
     }
 
-    pub fn load(&mut self, file: BWFile) {
+    pub fn load(&mut self, file: CoFile) {
         // read the file
         let buffer: Vec<LineType> = file.read();
 
@@ -108,6 +108,16 @@ impl Program {
         match instruction {
             Instruction::VARIABLE(variable, value) => {
                 self.memory.insert(variable, value);
+            }
+            Instruction::ARRAY(variable, value, size) => {
+                // Add one variable with the name of the array
+                self.memory.insert(variable, value);
+                // Add the rest of the variables without name
+                for i in 1..size {
+                    let name = variable.name + i as u16;
+                    self.memory.insert(Variable::from(name), value);
+                    self.variable_names.add(&name.to_string());
+                }
             }
             _ => {
                 self.instructions.push(instruction);

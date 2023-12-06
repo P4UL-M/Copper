@@ -1,4 +1,5 @@
 use crate::enums::{AddressNames, Extension, Instruction, Label, Parameter, Register, Variable};
+use regex::Regex;
 use std::io::Read;
 use std::str::FromStr;
 
@@ -165,8 +166,8 @@ impl LineType {
                             bin_to_instruction!(LDA, line);
                         }
                         0b00001 => {
-                            let variable = ((line >> 17) & 0b1111111111) as u16; // get the variable
-                            let parameter = ((line >> 5) & 0b1111111111) as u32; // get the parameter
+                            let variable = ((line >> 17) & 0b1111111111) as u16; // get the variable name
+                            let parameter = ((line >> 5) & 0b111111111111) as u32; // get the parameter
                             return Instruction::STR(
                                 Variable::from(variable),
                                 Parameter::from(parameter),
@@ -249,16 +250,44 @@ impl LineType {
         } else if *category == LineCategory::DATA {
             match self {
                 LineType::String(line) => {
-                    let (name, value) = line.split_at(line.find(" ").unwrap());
-                    let value = value.trim();
-                    let value =
-                        Into::<u32>::into(value.parse::<i32>().unwrap() as u32) & 0b1111111111; // parse the value and convert it to 10 bits integer
-                    return Instruction::VARIABLE(Variable::new(name, variable_names), value);
+                    // check if line is a array
+                    if Regex::new(r"^[a-zA-Z0-9]+\[\d+\]").unwrap().is_match(line) {
+                        let (name, value) = line.split_at(line.find(" ").unwrap());
+                        let value = value.trim();
+                        let value =
+                            Into::<u32>::into(value.parse::<i32>().unwrap() as u32) & 0b1111111111; // parse the value and convert it to 10 bits integer
+                                                                                                    // split the name to get the variable name and the array length
+                        let (name, length) = name.split_at(name.find("[").unwrap());
+                        let length = length.replace("[", "").replace("]", "");
+                        let length = length.parse::<u16>().unwrap();
+                        return Instruction::ARRAY(
+                            Variable::new(name, variable_names),
+                            value,
+                            length,
+                        );
+                    } else {
+                        let (name, value) = line.split_at(line.find(" ").unwrap());
+                        let value = value.trim();
+                        let value =
+                            Into::<u32>::into(value.parse::<i32>().unwrap() as u32) & 0b1111111111; // parse the value and convert it to 10 bits integer
+                        return Instruction::VARIABLE(Variable::new(name, variable_names), value);
+                    }
                 }
                 LineType::Bin(line) => {
-                    let name = line >> 22; // get first 10 bits for variable name
-                    let value = (line >> 12) & 0b1111111111; // get next 10 bits for variable value
-                    return Instruction::VARIABLE(Variable::from(name as u16), value);
+                    let data_type = (line >> 31) as usize; // get first bit for variable type
+                    let name = (line >> 21) & 0b1111111111; // get next 10 bits for variable name
+                    if data_type == 0 {
+                        let value = (line >> 11) & 0b1111111111; // get next 10 bits for variable value
+                        return Instruction::VARIABLE(Variable::from(name as u16), value);
+                    } else {
+                        let length = (line >> 11) & 0b1111111111; // get next 10 bits for array length
+                        let value = (line >> 1) & 0b1111111111; // get last 10 bits for array value
+                        return Instruction::ARRAY(
+                            Variable::from(name as u16),
+                            value,
+                            length as u16,
+                        );
+                    }
                 }
             }
         } else {
@@ -379,20 +408,20 @@ impl Into<u32> for LineCategory {
     }
 }
 
-pub struct BWFile {
+pub struct CoFile {
     pub filename: String,
     pub extension: Extension,
 }
 
-impl BWFile {
-    pub fn new(filename: String) -> BWFile {
+impl CoFile {
+    pub fn new(filename: String) -> CoFile {
         let extension = match filename.split(".").last() {
-            Some("bw") => Extension::BW,
+            Some("co") => Extension::CO,
             Some("bin") => Extension::BIN,
             _ => panic!("Invalid file extension"),
         };
 
-        BWFile {
+        CoFile {
             filename,
             extension,
         }
@@ -400,7 +429,7 @@ impl BWFile {
 
     fn read_as_bin(&self) -> Vec<u32> {
         let mut file: std::fs::File = std::fs::File::open(&self.filename).expect("File not found");
-        // if file is a .bwin file, read it as binary
+        // if file is a .bin file, read it as binary
         // in binary mode, each instruction is 32 bytes long so we need to read 32 bytes at a time
         let mut buffer: Vec<u8> = Vec::new();
         file.read_to_end(&mut buffer).expect("Error reading file");
@@ -439,7 +468,7 @@ impl BWFile {
     // return a vector of u32 or String depending on the file extension
     pub fn read(&self) -> Vec<LineType> {
         match self.extension {
-            Extension::BW => {
+            Extension::CO => {
                 let buffer = self.read_as_text();
                 let buffer = buffer
                     .iter()
