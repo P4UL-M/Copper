@@ -23,7 +23,7 @@ impl FromStr for Command {
 }
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const HELP_MESSAGE: &str = "Usage: copper <filename>\n\nOptions:\n\t-h, --help\t\tPrint this help message\n\t-V, --version\t\tPrint version information\n\t-v, --verbose\t\tVerbose mode\n\t-d, --debug\t\tDebug mode\n\nCommands:\n\trun\t\t\tRun the program\n\texport\t\t\tExport the program to a binary file\n\nExamples:\n\tcopper program.co\n\tcopper run program.co\n\tcopper export program.co\n";
+const HELP_MESSAGE: &str = "Usage: copper <filename>\n\nOptions:\n\t-h, --help\t\tPrint this help message\n\t-V, --version\t\tPrint version information\n\t-v, --verbose\t\tVerbose mode\n\t-d, --debug\t\tDebug mode\n\nCommands:\n\trun <filename>\t\t\t\tRun the program\n\texport <filename> [<outputfile>]\tExport the program to a binary file\n\nExamples:\n\tcopper program.co\n\tcopper run program.co\n\tcopper export program.co\n\tcopper export program.co program.bin\n";
 
 fn main() {
     // get the name of the file from the command line
@@ -59,10 +59,12 @@ fn main() {
         }
     }
     // get the filename (argument without a dash)
+    args.reverse();
     let filename: String = loop {
         match args.pop() {
             Some(arg) => {
                 if !arg.starts_with("-") {
+                    println!("Filename: {}", arg);
                     break arg;
                 }
             }
@@ -94,7 +96,17 @@ fn main() {
             let t3 = std::time::Instant::now();
             let data = file.export();
             println!("Exported data: {}", data);
-            let name = file.filename.clone().replace(".co", "");
+            let name: String = if args.len() > 0 {
+                let name = &args[0];
+                if name.ends_with(".bin") {
+                    name.replace(".bin", "")
+                } else {
+                    println!("Invalid filename. Use -h or --help for help.");
+                    std::process::exit(1);
+                }
+            } else {
+                file.filename.clone().replace(".co", "")
+            };
             // create a new file with the same name but with the extension .bin and write the exported file to it
             let mut file = File::create(format!("{}.bin", name)).expect("creation failed");
             // cut the string into packages of 8 bits
