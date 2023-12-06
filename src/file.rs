@@ -95,6 +95,10 @@ impl LineType {
                         "OR" => {
                             str_to_instruction!(OR, line, variable_names);
                         }
+                        "NOT" => {
+                            let register = line.next().unwrap();
+                            return Instruction::NOT(Register::from_str(register).unwrap());
+                        }
                         "AND" => {
                             str_to_instruction!(AND, line, variable_names);
                         }
@@ -186,6 +190,10 @@ impl LineType {
                         }
                         0b00101 => {
                             bin_to_instruction!(OR, line);
+                        }
+                        0b00110 => {
+                            let register = ((line >> 25) & 0b11) as u8; // get the register
+                            return Instruction::NOT(Register::from(register));
                         }
                         0b00111 => {
                             bin_to_instruction!(ADD, line);

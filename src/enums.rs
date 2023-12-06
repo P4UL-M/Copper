@@ -1,5 +1,4 @@
 #![allow(non_camel_case_types)]
-
 use core::fmt;
 use regex::Regex;
 use std::{fmt::Debug, hash::Hash, str::FromStr};

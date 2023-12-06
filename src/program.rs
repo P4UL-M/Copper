@@ -197,6 +197,11 @@ impl Program {
                 let result: u32 = self.get_register(*register) | value;
                 self.set_register(*register, result);
             }
+            Instruction::NOT(register) => {
+                let value: u32 = self.get_register(*register);
+                let result: u32 = !value;
+                self.set_register(*register, result);
+            }
             Instruction::ADD(register, parameter) => {
                 let value: u32;
                 get_parameter!(parameter, self, value);
