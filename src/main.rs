@@ -25,6 +25,10 @@ fn main() {
             println!("Verbose mode");
             std::env::set_var("RUST_LOG", "verbose");
         }
+        if arg == "-d" || arg == "--debug" {
+            println!("Debug mode");
+            std::env::set_var("DEBUG_MODE", "debug");
+        }
     }
     // get the filename (argument without a dash)
     let filename: String = loop {
