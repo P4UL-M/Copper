@@ -160,6 +160,17 @@ impl LineType {
                         "HLT" => {
                             return Instruction::HLT;
                         }
+                        "IN" => {
+                            let parameter = line.next().unwrap();
+                            return Instruction::IN(Parameter::from_str(parameter, variable_names));
+                        }
+                        "OUT" => {
+                            let parameter = line.next().unwrap();
+                            return Instruction::OUT(Parameter::from_str(
+                                parameter,
+                                variable_names,
+                            ));
+                        }
                         _ => panic!("Invalid instruction"),
                     }
                 }
@@ -246,6 +257,14 @@ impl LineType {
                         }
                         0b10101 => {
                             return Instruction::HLT;
+                        }
+                        0b10110 => {
+                            let parameter = ((line >> 15) & 0b111111111111) as u32; // get the parameter
+                            return Instruction::IN(Parameter::from(parameter));
+                        }
+                        0b10111 => {
+                            let parameter = ((line >> 15) & 0b111111111111) as u32; // get the parameter
+                            return Instruction::OUT(Parameter::from(parameter));
                         }
                         0b11110 => {
                             let label = (line >> 24) & 0b111; // get the label

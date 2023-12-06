@@ -35,6 +35,8 @@ pub enum Instruction {
     VARIABLE(Variable, u32),
     ARRAY(Variable, u32, u16),
     LABEL(Label),
+    IN(Parameter),
+    OUT(Parameter),
 }
 
 impl Into<u32> for Instruction {
@@ -260,6 +262,20 @@ impl Into<u32> for Instruction {
                 res = res << 3;
                 res = res | (Into::<u3>::into(l) as u32 & 0b111); // 3 bits for the label
                 res = res << 24; // 24 bits to get to 32 bits
+                return res;
+            }
+            Instruction::IN(p) => {
+                let mut res = 0b10110 as u32; // 5 bits for the instruction
+                res = res << 12;
+                res = res | Into::<u12>::into(p); // 12 bits for the parameter
+                res = res << 15; // 15 bits to get to 32 bits
+                return res;
+            }
+            Instruction::OUT(p) => {
+                let mut res = 0b10111 as u32; // 5 bits for the instruction
+                res = res << 12;
+                res = res | Into::<u12>::into(p); // 12 bits for the parameter
+                res = res << 15; // 15 bits to get to 32 bits
                 return res;
             }
         }

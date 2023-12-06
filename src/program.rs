@@ -293,6 +293,27 @@ impl Program {
             Instruction::HLT => {
                 self.counter = self.instructions.len();
             }
+            Instruction::IN(parameter) => {
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input).unwrap();
+                let input: u32 = input.trim().parse().unwrap();
+                match parameter {
+                    Parameter::Variable(variable) => {
+                        self.set_variable(*variable, input);
+                    }
+                    Parameter::Register(register) => {
+                        self.set_register(*register, input);
+                    }
+                    _ => {
+                        panic!("Cannot read to constant");
+                    }
+                }
+            }
+            Instruction::OUT(parameter) => {
+                let value: u32;
+                get_parameter!(parameter, self, value);
+                println!("{}", value);
+            }
             _ => {
                 panic!("Instruction not implemented");
             }

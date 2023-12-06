@@ -1,10 +1,9 @@
 #DATA
-INPUT 12
 RES 0
 
 #CODE
 ; making a factorial program
-LDA T0 INPUT
+IN T0
 LDA T1 1
 LOOP:
 BSM T0 2 END
@@ -13,4 +12,5 @@ DEC T0
 JMP LOOP
 END:
 STR RES T1
+OUT RES
 HLT
