@@ -174,11 +174,11 @@ impl LineType {
                             );
                         }
                         0b00010 => {
-                            let parameter = ((line >> 15) & 0b1111111111) as u32; // get the parameter
+                            let parameter = ((line >> 15) & 0b111111111111) as u32; // get the parameter
                             return Instruction::PUSH(Parameter::from(parameter));
                         }
                         0b00011 => {
-                            let register = ((line >> 25) & 0b11111) as u8; // get the register
+                            let register = ((line >> 25) & 0b11) as u8; // get the register
                             return Instruction::POP(Register::from(register));
                         }
                         0b00100 => {
@@ -207,7 +207,7 @@ impl LineType {
                             return Instruction::INC(Register::from(register));
                         }
                         0b01101 => {
-                            let register = ((line >> 25) & 0b11111) as u8; // get the register
+                            let register = ((line >> 25) & 0b11) as u8; // get the register
                             return Instruction::DEC(Register::from(register));
                         }
                         0b01110 => {
@@ -217,10 +217,10 @@ impl LineType {
                             bin_to_instruction!(BNE, line, line);
                         }
                         0b10000 => {
-                            bin_to_instruction!(BBG, line, line);
+                            bin_to_instruction!(BSM, line, line);
                         }
                         0b10001 => {
-                            bin_to_instruction!(BSM, line, line);
+                            bin_to_instruction!(BBG, line, line);
                         }
                         0b10010 => {
                             let label = (line >> 24) & 0b111; // get the label
