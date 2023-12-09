@@ -7,7 +7,7 @@
 
 ## What is Copper ?
 
-Copper is a assembly interpreter
+Copper is a assembly interpreter. It It was created for educational purposes. It is a simple language with basic operations. It is a 32-bit architecture with 4 registers. It has a stack and 1024 addressable memory positions of 32 bits. It has a simple syntax and a simple instruction set making it easy to learn and use to get introduced to assembly.
 
 ## How to install ?
 
