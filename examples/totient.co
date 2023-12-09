@@ -19,13 +19,11 @@ LOOP:
     ; check if T1 is greater than the input
     BBG T1 INPUT END
     ; compute the gcd of T0 and T1
-    ; push b and a on the stack
-    PUSH T1
-    PUSH INPUT
+    ; T3 is B and T2 is A
+    LDA T3 T1
+    LDA T2 INPUT
     JMP GCD
     GCDRETURN:
-    ; get gcd from the stack
-    POP T2
     ; check if gcd is different from 1
     BNE T2 1 NOPRIME
         INC T0
@@ -34,21 +32,19 @@ LOOP:
     INC T1
     JMP LOOP
 GCD:
-    ; get the value of A and B
-    ; pop a in T2 and b in T3
-    POP T2
-    POP T3
     ; check if B is equal to 0
     BNE T3 0 GCDNOTZERO
-        ; push the value of A and return
-        PUSH T2
+        ; if B is equal to 0, return A in T2
         JMP GCDRETURN
     GCDNOTZERO:
     ; compute the remainder of A and B
     MOD T2 T3
-    ; push the value of B and A
+    ; push the value of B to remember it
     PUSH T2
-    PUSH T3
+    ; set A to B
+    LDA T2 T3
+    ; set B to the remainder
+    POP T3
     ; jump to GCD
     JMP GCD
 END:
