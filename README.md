@@ -9,6 +9,47 @@
 
 Copper is a assembly interpreter
 
+## How to install ?
+
+### Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Git](https://git-scm.com/downloads)
+
+### Install
+
+```bash
+git clone https://github.com/P4UL-M/Copper.git
+cd Copper
+cargo build
+```
+
+### Add to PATH
+
+#### Windows
+
+```plaintext
+$env:Path += ";$pwd\target\debug"
+```
+
+#### Linux
+
+```plaintext
+export PATH="$PATH:$pwd/target/debug"
+```
+
+#### MacOS
+
+```plaintext
+export PATH="$PATH:$pwd/target/debug"
+```
+
+## How to test ?
+
+```plaintext
+cargo run \<filename\>
+```
+
 ## How to Use ?
 
 To utilize Copper, follow the command line syntax and available options.
