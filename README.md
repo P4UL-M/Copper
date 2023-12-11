@@ -3,7 +3,7 @@
 ## Table of Content
 - [What is Copper ?](#what-is-copper)
 - [How to use ?](#how-to-use)
-- [Instruction](#instruction-sets)
+- [Instructions](#instruction-sets)
 
 ## What is Copper ?
 
