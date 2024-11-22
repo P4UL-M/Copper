@@ -25,6 +25,7 @@ pub struct Program {
     registers: HashMap<Register, u32>,
     variable_names: AddressNames,
     label_names: AddressNames,
+    label_indices: HashMap<Label, usize>,
     stack: Vec<u32>,
     memory: IndexMap<Variable, u32>,
     counter: usize,
@@ -38,6 +39,7 @@ impl Program {
             registers: HashMap::new(),
             variable_names: AddressNames::new(),
             label_names: AddressNames::new(),
+            label_indices: HashMap::new(),
             stack: Vec::with_capacity(4096 / 32),
             memory: IndexMap::new(),
             counter: 0,
@@ -108,6 +110,11 @@ impl Program {
 
     pub fn add_instruction(&mut self, instruction: Instruction) {
         match instruction {
+            Instruction::LABEL(label) => {
+                self.instructions.push(instruction);
+                self.label_indices
+                    .insert(label, self.instructions.len() - 1);
+            }
             Instruction::VARIABLE(variable, value) => {
                 self.memory.insert(variable, value);
             }
@@ -150,17 +157,8 @@ impl Program {
     }
 
     pub fn find_label(&self, label: &Label) -> usize {
-        // find the label in instructions
-        let mut index: usize = 0;
-        for instruction in &self.instructions {
-            if let Instruction::LABEL(l) = instruction {
-                if l == label {
-                    return index;
-                }
-            }
-            index += 1;
-        }
-        panic!("Label {:?} not found", label);
+        // Return the index of the label
+        *self.label_indices.get(label).expect("Label not found")
     }
 
     pub fn execute_instruction(&mut self, index: usize) {

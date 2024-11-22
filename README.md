@@ -120,7 +120,7 @@ Refer to the instruction sets below to find the specific functionalities and syn
 - 10 bits for the address of the variable
 - 12 bits for parameter
 	- 2 bits for type of the parameter
-	- 10 bits for he constant or the address of the register
+	- 10 bits for the constant or the address of the register
   	*No store from variable to variable allowed*
 
 ### PUSH \<reg\>/\<var\>/\<const\> - `0b00010` 
